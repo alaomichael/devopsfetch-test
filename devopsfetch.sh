@@ -133,16 +133,27 @@ display_nginx() {
 display_time_range() {
     local start_time="$1"
     local end_time="$2"
+    
+    # If end_time is not provided, use the current time
+    if [ -z "$end_time" ]; then
+        end_time=$(date '+%Y-%m-%d %H:%M:%S')
+    fi
+    
     echo "****************************** SYSTEM LOGS ******************************"
+    
+    # Extract logs within the specified time range
     local log_records
     log_records=$(grep -E "$start_time|$end_time" /var/log/syslog 2>/dev/null)
+    
     if [ -z "$log_records" ]; then
         echo "-- No entries --"
     else
         echo "$log_records"
     fi
+    
     echo "**************************************************************************************"
 }
+
 
 display_users() {
     local username="$1"
