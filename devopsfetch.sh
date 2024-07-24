@@ -52,42 +52,115 @@ display_ports() {
     echo "**************************************************************************************"
 }
 
-# Display Docker
-display_docker() {
-    echo "****************************** DOCKER STATUS ******************************"
+# # Display Docker
+# display_docker() {
+#     echo "****************************** DOCKER STATUS ******************************"
 
-    # Capture Docker Images and Containers information
-    docker_images=$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}" | tail -n +2)
-    docker_containers=$(docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | tail -n +2)
+#     # Capture Docker Images and Containers information
+#     docker_images=$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}" | tail -n +2)
+#     docker_containers=$(docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | tail -n +2)
 
-    # Calculate maximum column widths for Docker Images
-    max_image_lengths=(20 20 50 20)
-    calculate_max_widths "$docker_images" max_image_lengths
+#     # Calculate maximum column widths for Docker Images
+#     max_image_lengths=(20 20 50 20)
+#     calculate_max_widths "$docker_images" max_image_lengths
 
-    # Calculate maximum column widths for Docker Containers
-    max_container_lengths=(20 20 20 20)
-    calculate_max_widths "$docker_containers" max_container_lengths
+#     # Calculate maximum column widths for Docker Containers
+#     max_container_lengths=(20 20 20 20)
+#     calculate_max_widths "$docker_containers" max_container_lengths
 
-    # Print Docker Images
-    echo "Docker Images:"
-    printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_image_lengths[0]}" "REPOSITORY" "${max_image_lengths[1]}" "TAG" "${max_image_lengths[2]}" "IMAGE ID" "${max_image_lengths[3]}" "SIZE"
-    printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_image_lengths[0]}")" "$(str_repeat '-' "${max_image_lengths[1]}")" "$(str_repeat '-' "${max_image_lengths[2]}")" "$(str_repeat '-' "${max_image_lengths[3]}")"
-    echo "$docker_images" | awk -v max0="${max_image_lengths[0]}" -v max1="${max_image_lengths[1]}" -v max2="${max_image_lengths[2]}" -v max3="${max_image_lengths[3]}" '
-    {
-        printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4;
-    }'
-    echo ""
+#     # Print Docker Images
+#     echo "Docker Images:"
+#     printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_image_lengths[0]}" "REPOSITORY" "${max_image_lengths[1]}" "TAG" "${max_image_lengths[2]}" "IMAGE ID" "${max_image_lengths[3]}" "SIZE"
+#     printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_image_lengths[0]}")" "$(str_repeat '-' "${max_image_lengths[1]}")" "$(str_repeat '-' "${max_image_lengths[2]}")" "$(str_repeat '-' "${max_image_lengths[3]}")"
+#     echo "$docker_images" | awk -v max0="${max_image_lengths[0]}" -v max1="${max_image_lengths[1]}" -v max2="${max_image_lengths[2]}" -v max3="${max_image_lengths[3]}" '
+#     {
+#         printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4;
+#     }'
+#     echo ""
 
-    # Print Docker Containers
-    echo "Docker Containers:"
-    printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_container_lengths[0]}" "NAMES" "${max_container_lengths[1]}" "IMAGE" "${max_container_lengths[2]}" "STATUS" "${max_container_lengths[3]}" "PORTS"
-    printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_container_lengths[0]}")" "$(str_repeat '-' "${max_container_lengths[1]}")" "$(str_repeat '-' "${max_container_lengths[2]}")" "$(str_repeat '-' "${max_container_lengths[3]}")"
-    echo "$docker_containers" | awk -v max0="${max_container_lengths[0]}" -v max1="${max_container_lengths[1]}" -v max2="${max_container_lengths[2]}" -v max3="${max_container_lengths[3]}" '
-    {
-        printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4;
-    }'
-    echo "***************************************************************************"
+#     # Print Docker Containers
+#     echo "Docker Containers:"
+#     printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_container_lengths[0]}" "NAMES" "${max_container_lengths[1]}" "IMAGE" "${max_container_lengths[2]}" "STATUS" "${max_container_lengths[3]}" "PORTS"
+#     printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_container_lengths[0]}")" "$(str_repeat '-' "${max_container_lengths[1]}")" "$(str_repeat '-' "${max_container_lengths[2]}")" "$(str_repeat '-' "${max_container_lengths[3]}")"
+#     echo "$docker_containers" | awk -v max0="${max_container_lengths[0]}" -v max1="${max_container_lengths[1]}" -v max2="${max_container_lengths[2]}" -v max3="${max_container_lengths[3]}" '
+#     {
+#         printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4;
+#     }'
+#     echo "***************************************************************************"
+# }
+
+
+# Function to calculate maximum column widths
+calculate_max_widths() {
+    local data="$1"
+    local -n max_lengths=$2
+    while IFS= read -r line; do
+        local fields=($line)
+        for i in "${!fields[@]}"; do
+            local length=${#fields[i]}
+            if (( length > max_lengths[i] )); then
+                max_lengths[i]=$length
+            fi
+        done
+    done <<< "$data"
 }
+
+# Function to repeat a character
+str_repeat() {
+    local char=$1
+    local num=$2
+    printf "%${num}s" | tr ' ' "$char"
+}
+
+# Function to display Docker status
+display_docker() {
+    local container_name="$1"
+
+    if [ -z "$container_name" ]; then
+        # No specific container provided, display all Docker images and containers
+
+        echo "****************************** DOCKER STATUS ******************************"
+
+        # Capture Docker Images and Containers information
+        docker_images=$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}" | tail -n +2)
+        docker_containers=$(docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | tail -n +2)
+
+        # Calculate maximum column widths for Docker Images
+        max_image_lengths=(20 20 50 20)
+        calculate_max_widths "$docker_images" max_image_lengths
+
+        # Calculate maximum column widths for Docker Containers
+        max_container_lengths=(20 20 20 20)
+        calculate_max_widths "$docker_containers" max_container_lengths
+
+        # Print Docker Images
+        echo "Docker Images:"
+        printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_image_lengths[0]}" "REPOSITORY" "${max_image_lengths[1]}" "TAG" "${max_image_lengths[2]}" "IMAGE ID" "${max_image_lengths[3]}" "SIZE"
+        printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_image_lengths[0]}")" "$(str_repeat '-' "${max_image_lengths[1]}")" "$(str_repeat '-' "${max_image_lengths[2]}")" "$(str_repeat '-' "${max_image_lengths[3]}")"
+        echo "$docker_images" | awk -v max0="${max_image_lengths[0]}" -v max1="${max_image_lengths[1]}" -v max2="${max_image_lengths[2]}" -v max3="${max_image_lengths[3]}" '
+        {
+            printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4;
+        }'
+        echo ""
+
+        # Print Docker Containers
+        echo "Docker Containers:"
+        printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_container_lengths[0]}" "NAMES" "${max_container_lengths[1]}" "IMAGE" "${max_container_lengths[2]}" "STATUS" "${max_container_lengths[3]}" "PORTS"
+        printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_container_lengths[0]}")" "$(str_repeat '-' "${max_container_lengths[1]}")" "$(str_repeat '-' "${max_container_lengths[2]}")" "$(str_repeat '-' "${max_container_lengths[3]}")"
+        echo "$docker_containers" | awk -v max0="${max_container_lengths[0]}" -v max1="${max_container_lengths[1]}" -v max2="${max_container_lengths[2]}" -v max3="${max_container_lengths[3]}" '
+        {
+            printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4;
+        }'
+        echo "***************************************************************************"
+    else
+        # Specific container name provided, display details for that container
+
+        echo "****************************** DOCKER CONTAINER DETAILS ******************************"
+        docker inspect "$container_name" --format "table {{.Name}}\t{{.Image}}\t{{.State.Status}}\t{{.NetworkSettings.Ports}}" | tail -n +2
+        echo "**************************************************************************************"
+    fi
+}
+
 
 # Display Nginx
 display_nginx() {
@@ -236,7 +309,7 @@ case "$1" in
         echo "Usage: $0 [OPTIONS]"
         echo "Options:"
         echo "  -p, --port <port>        Display details for a specific port"
-        echo "  -d, --docker             Display Docker images and containers"
+        echo "  -d, --docker [container_name]    List Docker images and containers, or details for a specific container"
         echo "  -n, --nginx [domain]     Display Nginx configuration, or for a specific domain"
         echo "  -u, --users              Display user details and login records"
         echo "  -t, --time <start> <end> Display logs within a specific time range"
