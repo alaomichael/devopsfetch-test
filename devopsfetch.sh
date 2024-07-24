@@ -225,7 +225,7 @@ monitor_mode() {
         display_users | tee -a "$LOG_FILE"
         
         log_message "Logging completed. Waiting for the next interval..."
-        sleep 3600 # Wait for 1 hour before repeating
+        sleep 300 # Wait for 5 minutes before repeating
     done
 }
 
