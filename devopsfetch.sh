@@ -7,22 +7,6 @@ LOG_FILE="/var/log/monitor.log"
 touch "$LOG_FILE"
 chmod 644 "$LOG_FILE"
 
-# # Helper Functions
-# calculate_max_widths() {
-#     local data="$1"
-#     local max_lengths=("${!2}")  # Get the reference to the array
-#     while IFS= read -r line; do
-#         local fields=($line)
-#         for i in "${!fields[@]}"; do
-#             local length=${#fields[i]}
-#             if (( length > max_lengths[i] )); then
-#                 max_lengths[i]=$length
-#             fi
-#         done
-#     done <<< "$data"
-#     eval "$2=(\"\${max_lengths[@]}\")"  # Update the original array
-# }
-
 # Helper Functions
 calculate_max_widths() {
     local data="$1"
@@ -38,39 +22,6 @@ calculate_max_widths() {
     done <<< "$data"
 }
 
-# str_repeat() {
-#     local char=$1
-#     local num=$2
-#     printf "%${num}s" | tr ' ' "$char"
-# }
-
-# log_message() {
-#     local message="$1"
-#     echo "[INFO] $(date): $message" | tee -a "$LOG_FILE"
-# }
-
-# display_ports() {
-#     echo "****************************** ACTIVE PORTS AND SERVICES ******************************"
-#     ports_services=$(sudo ss -tunlp | awk 'NR>1 {print $1"|" $2"|" $3"|" $4"|" $5"|" $6"|" $7"|" $8}')
-#     max_lengths=(8 10 8 8 22 22 20 10)
-#     calculate_max_widths "$ports_services" max_lengths
-#     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
-#     separator=$(printf "%s" "${max_lengths[@]}" | awk '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
-#     echo "$header"
-#     echo "$separator"
-    
-#     if [ -n "$1" ]; then
-#         log_message "Displaying details for port $1"
-#         sudo ss -tunlp | grep ":$1 " | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
-#             { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
-#     else
-#         log_message "Listing all active ports and services:"
-#         sudo ss -tunlp | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
-#             NR > 1 { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
-#     fi
-#     echo "**************************************************************************************"
-# }
-
 str_repeat() {
     local char=$1
     local num=$2
@@ -84,31 +35,68 @@ log_message() {
 
 display_ports() {
     echo "****************************** ACTIVE PORTS AND SERVICES ******************************"
+
+    # Retrieve port and service information
     ports_services=$(sudo ss -tunlp | awk 'NR>1 {print $1"|" $2"|" $3"|" $4"|" $5"|" $6"|" $7"|" $8}')
+    
+    # Define maximum column widths
     max_lengths=(8 10 8 8 22 22 20 10)
+    
+    # Calculate maximum widths for columns
     calculate_max_widths "$ports_services" max_lengths
+    
+    # Header with aligned columns
     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
+    separator=$(printf "%s" "${max_lengths[@]}" | awk '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
     
-    # Generate separator
-    separator="|"
-    for length in "${max_lengths[@]}"; do
-        separator+=" $(str_repeat '-' $length) |"
-    done
-    
+    # Print header and separator
     echo "$header"
     echo "$separator"
     
+    # Check if a specific port is requested
     if [ -n "$1" ]; then
-        log_message "Displaying details for port $1"
+        # log_message "Displaying details for port $1"
         sudo ss -tunlp | grep ":$1 " | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
             { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
     else
-        log_message "Listing all active ports and services:"
+        # log_message "Listing all active ports and services:"
         sudo ss -tunlp | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
             NR > 1 { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
     fi
+
+    # Print the closing line
+    echo "$separator"
     echo "**************************************************************************************"
 }
+
+
+# display_ports() {
+#     echo "****************************** ACTIVE PORTS AND SERVICES ******************************"
+#     ports_services=$(sudo ss -tunlp | awk 'NR>1 {print $1"|" $2"|" $3"|" $4"|" $5"|" $6"|" $7"|" $8}')
+#     max_lengths=(8 10 8 8 22 22 20 10)
+#     calculate_max_widths "$ports_services" max_lengths
+#     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
+    
+#     # Generate separator
+#     separator="|"
+#     for length in "${max_lengths[@]}"; do
+#         separator+=" $(str_repeat '-' $length) |"
+#     done
+    
+#     echo "$header"
+#     echo "$separator"
+    
+#     if [ -n "$1" ]; then
+#         # log_message "Displaying details for port $1"
+#         sudo ss -tunlp | grep ":$1 " | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
+#             { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
+#     else
+#         # log_message "Listing all active ports and services:"
+#         sudo ss -tunlp | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
+#             NR > 1 { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
+#     fi
+#     echo "**************************************************************************************"
+# }
 
 
 # display_docker() {
@@ -209,7 +197,7 @@ display_docker() {
 
 display_nginx() {
     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
-    log_message "Listing all Nginx domains and their ports:"
+    # log_message "Listing all Nginx domains and their ports:"
 
     nginx_config=$(sudo nginx -T 2>/dev/null)
     if [ $? -ne 0 ]; then
@@ -287,49 +275,73 @@ display_nginx() {
 
 display_users() {
     local username="$1"
+
     echo "****************************** USER DETAILS ******************************"
+    
+    if [ -n "$username" ]; then
+        # Display details for a specific user
+        echo "Displaying details for user: $username"
 
-    # Fetch user information
-    user_info=$(getent passwd "$username")
-    if [ -z "$user_info" ]; then
-        echo "Error: User $username not found."
-        return 1
-    fi
+        # Fetch user information
+        user_info=$(getent passwd "$username")
+        if [ -z "$user_info" ]; then
+            echo "Error: User $username not found."
+            return 1
+        fi
 
-    IFS=':' read -r uname password uid gid full_name home_dir shell <<< "$user_info"
+        IFS=':' read -r uname password uid gid full_name home_dir shell <<< "$user_info"
 
-    printf "| %-*s | %-*s | %-*s | %-*s |\n" 40 "Username" 20 "Full Name" 20 "Home Directory" 20 "Shell"
-    printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' 40)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)"
-    printf "| %-*s | %-*s | %-*s | %-*s |\n" 40 "$uname" 20 "$full_name" 20 "$home_dir" 20 "$shell"
+        printf "| %-*s | %-*s | %-*s | %-*s |\n" 40 "Username" 20 "Full Name" 20 "Home Directory" 20 "Shell"
+        printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' 40)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)"
+        printf "| %-*s | %-*s | %-*s | %-*s |\n" 40 "$uname" 20 "$full_name" 20 "$home_dir" 20 "$shell"
 
-    echo ""
-    echo "| User            | Login Time           | Logout Time          | Duration             |"
-    echo "| --------------- | -------------------- | -------------------- | -------------------- |"
+        echo ""
+        echo "| User            | Login Time           | Logout Time          | Duration             |"
+        echo "| --------------- | -------------------- | -------------------- | -------------------- |"
 
-    # Fetch user login information using the `last` command
-    login_info=$(last -F "$username" | head -n -2)
+        # Fetch user login information using the `last` command
+        login_info=$(last -F "$username" | head -n -2)
 
-    if [ -z "$login_info" ]; then
-        echo "| No login records found for $username |"
+        if [ -z "$login_info" ]; then
+            echo "| No login records found for $username |"
+        else
+            echo "$login_info" | awk -v max_lengths="14 20 20 20" '
+            {
+                user = $1
+                login_time = $4 " " $5 " " $6 " " $7
+                logout_time = $9 " " $10 " " $11 " " $12
+                duration = $13
+
+                if ($8 == "still") {
+                    logout_time = "still logged in"
+                    duration = $10
+                }
+
+                printf "| %-*s | %-*s | %-*s | %-*s |\n", 14, user, 20, login_time, 20, logout_time, 20, duration
+            }'
+        fi
     else
-        echo "$login_info" | awk -v max_lengths="14 20 20 20" '
-        {
-            user = $1
-            login_time = $4 " " $5 " " $6 " " $7
-            logout_time = $9 " " $10 " " $11 " " $12
-            duration = $13
+        # List all users
+        echo "Listing all users and their last login times:"
 
-            if ($8 == "still") {
-                logout_time = "still logged in"
-                duration = $10
-            }
-
-            printf "| %-*s | %-*s | %-*s | %-*s |\n", 14, user, 20, login_time, 20, logout_time, 20, duration
-        }'
+        # Print the header
+        printf "| %-*s | %-*s | %-*s | %-*s |\n" 20 "Username" 20 "Full Name" 20 "Home Directory" 20 "Shell"
+        printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)"
+        
+        # List all users
+        while IFS=: read -r uname _ _ _ full_name home_dir shell; do
+            # Get last login info for each user
+            last_login=$(last -F "$uname" | head -n 1 | awk '{print $4, $5, $6, $7}')
+            [ -z "$last_login" ] && last_login="No login records"
+            
+            printf "| %-*s | %-*s | %-*s | %-*s |\n" 20 "$uname" 20 "$full_name" 20 "$home_dir" 20 "$shell"
+            echo "  Last login: $last_login"
+        done < /etc/passwd
     fi
 
     echo "***************************************************************************"
 }
+
 
 
 # display_users() {
@@ -426,16 +438,16 @@ display_time_range() {
 monitor_mode() {
     log_message "Monitoring mode started"
     while true; do
-        log_message "Logging active ports and services:"
+        # log_message "Logging active ports and services:"
         display_ports | tee -a "$LOG_FILE"
         
-        log_message "Logging Docker images and containers:"
+        # log_message "Logging Docker images and containers:"
         display_docker | tee -a "$LOG_FILE"
         
-        log_message "Logging Nginx domains and ports:"
+        # log_message "Logging Nginx domains and ports:"
         display_nginx | tee -a "$LOG_FILE"
         
-        log_message "Logging user logins:"
+        # log_message "Logging user logins:"
         display_users | tee -a "$LOG_FILE"
         
         sleep 300 # Sleep for 5 minutes before next check
