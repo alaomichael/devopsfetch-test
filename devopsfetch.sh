@@ -134,7 +134,9 @@ display_nginx() {
 # Function to display system logs within a time range
 display_time_range() {
     local start_time="$1"
-    local end_time="$2"
+    # local end_time="$2"
+    local end_time="${2:-$(date '+%Y-%m-%d %H:%M:%S')}" # Default to current time if end_time is not provided
+
     echo "****************************** SYSTEM LOGS ******************************"
     
     local log_records
