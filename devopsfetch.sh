@@ -33,41 +33,6 @@ log_message() {
     echo "[INFO] $(date): $message" | tee -a "$LOG_FILE"
 }
 
-# display_ports() {
-#     echo "****************************** ACTIVE PORTS AND SERVICES ******************************"
-
-#     # Retrieve port and service information
-#     ports_services=$(sudo ss -tunlp | awk 'NR>1 {print $1"|" $2"|" $3"|" $4"|" $5"|" $6"|" $7"|" $8}')
-    
-#     # Define maximum column widths
-#     max_lengths=(8 10 8 8 22 22 20 10)
-    
-#     # Calculate maximum widths for columns
-#     calculate_max_widths "$ports_services" max_lengths
-    
-#     # Header with aligned columns
-#     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
-#     separator=$(printf "%s" "${max_lengths[@]}" | awk '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
-    
-#     # Print header and separator
-#     echo "$header"
-#     echo "$separator"
-    
-#     # Check if a specific port is requested
-#     if [ -n "$1" ]; then
-#         # log_message "Displaying details for port $1"
-#         sudo ss -tunlp | grep ":$1 " | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
-#             { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
-#     else
-#         # log_message "Listing all active ports and services:"
-#         sudo ss -tunlp | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
-#             NR > 1 { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
-#     fi
-
-#     # Print the closing line
-#     echo "$separator"
-#     echo "**************************************************************************************"
-# }
 
 display_ports() {
     echo "****************************** ACTIVE PORTS AND SERVICES ******************************"
@@ -111,42 +76,6 @@ display_ports() {
     echo "$(create_separator)"
     echo "**************************************************************************************"
 }
-
-
-
-# display_docker() {
-#     local container_name="$1"
-
-#     if [ -z "$container_name" ]; then
-#         echo "****************************** DOCKER STATUS ******************************"
-#         docker_images=$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}" | tail -n +2)
-#         docker_containers=$(docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | tail -n +2)
-#         max_image_lengths=(20 20 50 20)
-#         calculate_max_widths "$docker_images" max_image_lengths[@]
-#         max_container_lengths=(20 20 20 20)
-#         calculate_max_widths "$docker_containers" max_container_lengths[@]
-#         echo "Docker Images:"
-#         printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_image_lengths[0]}" "REPOSITORY" "${max_image_lengths[1]}" "TAG" "${max_image_lengths[2]}" "IMAGE ID" "${max_image_lengths[3]}" "SIZE"
-#         printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_image_lengths[0]}")" "$(str_repeat '-' "${max_image_lengths[1]}")" "$(str_repeat '-' "${max_image_lengths[2]}")" "$(str_repeat '-' "${max_image_lengths[3]}")"
-#         echo "$docker_images" | awk -v max0="${max_image_lengths[0]}" -v max1="${max_image_lengths[1]}" -v max2="${max_image_lengths[2]}" -v max3="${max_image_lengths[3]}" '
-#         {
-#             printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4;
-#         }'
-#         echo ""
-#         echo "Docker Containers:"
-#         printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_container_lengths[0]}" "NAMES" "${max_container_lengths[1]}" "IMAGE" "${max_container_lengths[2]}" "STATUS" "${max_container_lengths[3]}" "PORTS"
-#         printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_container_lengths[0]}")" "$(str_repeat '-' "${max_container_lengths[1]}")" "$(str_repeat '-' "${max_container_lengths[2]}")" "$(str_repeat '-' "${max_container_lengths[3]}")"
-#         echo "$docker_containers" | awk -v max0="${max_container_lengths[0]}" -v max1="${max_container_lengths[1]}" -v max2="${max_container_lengths[2]}" -v max3="${max_container_lengths[3]}" '
-#         {
-#             printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4;
-#         }'
-#         echo "***************************************************************************"
-#     else
-#         echo "****************************** DOCKER CONTAINER DETAILS ******************************"
-#         docker inspect "$container_name" --format "Name: {{.Name}}\nImage: {{.Image}}\nStatus: {{.State.Status}}\nPorts: {{.NetworkSettings.Ports}}\n" | grep -v '^$'
-#         echo "**************************************************************************************"
-#     fi
-# }
 
 
 display_docker() {
@@ -249,10 +178,10 @@ display_nginx() {
 
     # Function to create a separator line
     create_separator() {
-        printf "+%s+%s+%s+\n" \
-            "$(printf "%${col_width_domain}s" | tr ' ' '-')"
-            "$(printf "%${col_width_proxy}s" | tr ' ' '-')"
-            "$(printf "%${col_width_config_file}s" | tr ' ' '-')"
+        local sep1=$(printf "%${col_width_domain}s" | tr ' ' '-')
+        local sep2=$(printf "%${col_width_proxy}s" | tr ' ' '-')
+        local sep3=$(printf "%${col_width_config_file}s" | tr ' ' '-')
+        printf "+%s+%s+%s+\n" "$sep1" "$sep2" "$sep3"
     }
 
     # Print header
@@ -281,7 +210,6 @@ display_nginx() {
     create_separator
     echo "**************************************************************************************"
 }
-
 
 display_users() {
     local username="$1"
