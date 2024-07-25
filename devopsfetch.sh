@@ -33,33 +33,75 @@ log_message() {
     echo "[INFO] $(date): $message" | tee -a "$LOG_FILE"
 }
 
+# display_ports() {
+#     echo "****************************** ACTIVE PORTS AND SERVICES ******************************"
+
+#     # Retrieve port and service information
+#     ports_services=$(sudo ss -tunlp | awk 'NR>1 {print $1"|" $2"|" $3"|" $4"|" $5"|" $6"|" $7"|" $8}')
+    
+#     # Define maximum column widths
+#     max_lengths=(8 10 8 8 22 22 20 10)
+    
+#     # Calculate maximum widths for columns
+#     calculate_max_widths "$ports_services" max_lengths
+    
+#     # Header with aligned columns
+#     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
+#     separator=$(printf "%s" "${max_lengths[@]}" | awk '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
+    
+#     # Print header and separator
+#     echo "$header"
+#     echo "$separator"
+    
+#     # Check if a specific port is requested
+#     if [ -n "$1" ]; then
+#         # log_message "Displaying details for port $1"
+#         sudo ss -tunlp | grep ":$1 " | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
+#             { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
+#     else
+#         # log_message "Listing all active ports and services:"
+#         sudo ss -tunlp | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
+#             NR > 1 { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
+#     fi
+
+#     # Print the closing line
+#     echo "$separator"
+#     echo "**************************************************************************************"
+# }
+
 display_ports() {
     echo "****************************** ACTIVE PORTS AND SERVICES ******************************"
 
     # Retrieve port and service information
     ports_services=$(sudo ss -tunlp | awk 'NR>1 {print $1"|" $2"|" $3"|" $4"|" $5"|" $6"|" $7"|" $8}')
-    
+
     # Define maximum column widths
     max_lengths=(8 10 8 8 22 22 20 10)
-    
+
     # Calculate maximum widths for columns
     calculate_max_widths "$ports_services" max_lengths
-    
+
     # Header with aligned columns
     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
-    separator=$(printf "%s" "${max_lengths[@]}" | awk '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
     
+    # Build the separator
+    separator="+"
+    for length in "${max_lengths[@]}"; do
+        separator+=$(printf '%*s' "$length" '' | tr ' ' '-')
+        separator+='+'
+    done
+
     # Print header and separator
     echo "$header"
     echo "$separator"
-    
+
     # Check if a specific port is requested
     if [ -n "$1" ]; then
-        # log_message "Displaying details for port $1"
+        # Display details for a specific port
         sudo ss -tunlp | grep ":$1 " | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
             { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
     else
-        # log_message "Listing all active ports and services:"
+        # Display all active ports and services
         sudo ss -tunlp | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
             NR > 1 { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
     fi
@@ -68,6 +110,7 @@ display_ports() {
     echo "$separator"
     echo "**************************************************************************************"
 }
+
 
 
 # display_ports() {
@@ -195,60 +238,110 @@ display_docker() {
 #     echo "**************************************************************************************"
 # }
 
+
 display_nginx() {
+    local domain="$1"
     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
-    # log_message "Listing all Nginx domains and their ports:"
 
-    nginx_config=$(sudo nginx -T 2>/dev/null)
-    if [ $? -ne 0 ]; then
-        echo "Error: Unable to fetch Nginx configuration. Ensure Nginx is installed and running."
-        return 1
+    if [ -n "$domain" ]; then
+        echo "[INFO] $(date): Displaying Nginx configuration for domain $domain"
+        
+        # Fetch Nginx configuration
+        nginx_config=$(sudo nginx -T 2>/dev/null)
+        
+        # Extract domain-specific configuration
+        domain_config=$(echo "$nginx_config" | awk "/server_name $domain/,/}/")
+        
+        if [ -z "$domain_config" ]; then
+            echo "Domain $domain not found in Nginx configuration."
+        else
+            echo "$domain_config" | sed 's/^/ /'
+        fi
+    else
+        echo "[INFO] $(date): Listing all Nginx domains and their ports:"
+        
+        # Fetch Nginx configuration
+        nginx_config=$(sudo nginx -T 2>/dev/null)
+        
+        # Define maximum column widths
+        max_lengths=(20 10 50)
+        
+        # Calculate maximum widths for columns
+        calculate_max_widths "$nginx_config" max_lengths
+        
+        # Header with aligned columns
+        header="| DOMAIN                 | PROXY    | CONFIGURATION FILE                       |"
+        separator=$(printf "%s" "${max_lengths[@]}" | awk '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
+        
+        # Print header and separator
+        echo "$header"
+        echo "$separator"
+        
+        # Extract domains and ports
+        echo "$nginx_config" | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" '
+        /server_name/ {
+            printf "| %-*s | %-*s | %-*s |\n", max0, $2, max1, "N/A", max2, "N/A";
+        }'
+        
+        # Print the closing line
+        echo "$separator"
     fi
-
-    domains=()
-    proxies=()
-    config_files=()
-
-    current_file=""
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^#\ configuration\ file:\ (.*) ]]; then
-            current_file="${BASH_REMATCH[1]}"
-        fi
-        if [[ "$line" =~ server_name ]]; then
-            domain=$(echo "$line" | awk '{print $2}' | sed 's/;//')
-            domains+=("$domain")
-            proxies+=("N/A") # Placeholder, need logic to fetch proxy if required
-            config_files+=("$current_file")
-        fi
-    done <<< "$nginx_config"
-
-    max_domain_length=$(printf "%s\n" "${domains[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
-    max_proxy_length=$(printf "%s\n" "${proxies[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
-    max_config_length=$(printf "%s\n" "${config_files[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
-
-    max_lengths=($((max_domain_length+5)) $((max_proxy_length+5)) $((max_config_length+5)))
-
-    printf "| %-*s | %-*s | %-*s |\n" "${max_lengths[0]}" "DOMAIN" "${max_lengths[1]}" "PROXY" "${max_lengths[2]}" "CONFIGURATION FILE"
-    printf "| %s | %s | %s |\n" "$(str_repeat '-' "${max_lengths[0]}")" "$(str_repeat '-' "${max_lengths[1]}")" "$(str_repeat '-' "${max_lengths[2]}")"
-
-    for i in "${!domains[@]}"; do
-        printf "| %-*s | %-*s | %-*s |\n" "${max_lengths[0]}" "${domains[$i]}" "${max_lengths[1]}" "${proxies[$i]}" "${max_lengths[2]}" "${config_files[$i]}"
-    done
 
     echo "**************************************************************************************"
 }
 
 
+
+# display_nginx() {
+#     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
+#     # log_message "Listing all Nginx domains and their ports:"
+
+#     nginx_config=$(sudo nginx -T 2>/dev/null)
+#     if [ $? -ne 0 ]; then
+#         echo "Error: Unable to fetch Nginx configuration. Ensure Nginx is installed and running."
+#         return 1
+#     fi
+
+#     domains=()
+#     proxies=()
+#     config_files=()
+
+#     current_file=""
+#     while IFS= read -r line; do
+#         if [[ "$line" =~ ^#\ configuration\ file:\ (.*) ]]; then
+#             current_file="${BASH_REMATCH[1]}"
+#         fi
+#         if [[ "$line" =~ server_name ]]; then
+#             domain=$(echo "$line" | awk '{print $2}' | sed 's/;//')
+#             domains+=("$domain")
+#             proxies+=("N/A") # Placeholder, need logic to fetch proxy if required
+#             config_files+=("$current_file")
+#         fi
+#     done <<< "$nginx_config"
+
+#     max_domain_length=$(printf "%s\n" "${domains[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
+#     max_proxy_length=$(printf "%s\n" "${proxies[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
+#     max_config_length=$(printf "%s\n" "${config_files[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
+
+#     max_lengths=($((max_domain_length+5)) $((max_proxy_length+5)) $((max_config_length+5)))
+
+#     printf "| %-*s | %-*s | %-*s |\n" "${max_lengths[0]}" "DOMAIN" "${max_lengths[1]}" "PROXY" "${max_lengths[2]}" "CONFIGURATION FILE"
+#     printf "| %s | %s | %s |\n" "$(str_repeat '-' "${max_lengths[0]}")" "$(str_repeat '-' "${max_lengths[1]}")" "$(str_repeat '-' "${max_lengths[2]}")"
+
+#     for i in "${!domains[@]}"; do
+#         printf "| %-*s | %-*s | %-*s |\n" "${max_lengths[0]}" "${domains[$i]}" "${max_lengths[1]}" "${proxies[$i]}" "${max_lengths[2]}" "${config_files[$i]}"
+#     done
+
+#     echo "**************************************************************************************"
+# }
+
+
 display_users() {
     local username="$1"
-
     echo "****************************** USER DETAILS ******************************"
-    
+
     if [ -n "$username" ]; then
         # Display details for a specific user
-        echo "Displaying details for user: $username"
-
-        # Fetch user information
         user_info=$(getent passwd "$username")
         if [ -z "$user_info" ]; then
             echo "Error: User $username not found."
@@ -257,9 +350,9 @@ display_users() {
 
         IFS=':' read -r uname password uid gid full_name home_dir shell <<< "$user_info"
 
-        printf "| %-*s | %-*s | %-*s | %-*s |\n" 40 "Username" 20 "Full Name" 20 "Home Directory" 20 "Shell"
-        printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' 40)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)"
-        printf "| %-*s | %-*s | %-*s | %-*s |\n" 40 "$uname" 20 "$full_name" 20 "$home_dir" 20 "$shell"
+        printf "| %-*s | %-*s | %-*s | %-*s |\n" 20 "Username" 20 "Full Name" 30 "Home Directory" 20 "Shell"
+        printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)" "$(str_repeat '-' 30)" "$(str_repeat '-' 20)"
+        printf "| %-*s | %-*s | %-*s | %-*s |\n" 20 "$uname" 20 "$full_name" 30 "$home_dir" 20 "$shell"
 
         echo ""
         echo "| User            | Login Time           | Logout Time          | Duration             |"
@@ -286,23 +379,38 @@ display_users() {
                 printf "| %-*s | %-*s | %-*s | %-*s |\n", 14, user, 20, login_time, 20, logout_time, 20, duration
             }'
         fi
+
     else
         # List all users
         echo "Listing all users and their last login times:"
+        printf "| %-*s | %-*s | %-*s | %-*s |\n" 20 "Username" 20 "Full Name" 30 "Home Directory" 20 "Shell"
+        printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)" "$(str_repeat '-' 30)" "$(str_repeat '-' 20)"
 
-        # Print the header
-        printf "| %-*s | %-*s | %-*s | %-*s |\n" 20 "Username" 20 "Full Name" 20 "Home Directory" 20 "Shell"
-        printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)"
-        
-        # List all users
-        while IFS=: read -r uname _ _ _ full_name home_dir shell; do
-            # Get last login info for each user
-            last_login=$(last -F "$uname" | head -n 1 | awk '{print $4, $5, $6, $7}')
-            [ -z "$last_login" ] && last_login="No login records"
-            
-            printf "| %-*s | %-*s | %-*s | %-*s |\n" 20 "$uname" 20 "$full_name" 20 "$home_dir" 20 "$shell"
-            echo "  Last login: $last_login"
-        done < /etc/passwd
+        # Fetch all users information
+        getent passwd | awk -F: -v max0=20 -v max1=20 -v max2=30 -v max3=20 '
+        {
+            printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $5, max2, $6, max3, $7
+        }'
+
+        echo ""
+        echo "| User            | Login Time           | Logout Time          | Duration             |"
+        echo "| --------------- | -------------------- | -------------------- | -------------------- |"
+
+        # Fetch login information for all users
+        last -F | awk '
+        {
+            user = $1
+            login_time = $4 " " $5 " " $6 " " $7
+            logout_time = $9 " " $10 " " $11 " " $12
+            duration = $13
+
+            if ($8 == "still") {
+                logout_time = "still logged in"
+                duration = $10
+            }
+
+            printf "| %-*s | %-*s | %-*s | %-*s |\n", 14, user, 20, login_time, 20, logout_time, 20, duration
+        }'
     fi
 
     echo "***************************************************************************"
