@@ -529,7 +529,7 @@ monitor_mode() {
         # log_message "Logging user logins:"
         display_users | tee -a "$LOG_FILE"
         
-        sleep 300 # Sleep for 5 minutes before next check
+        sleep 120 # Sleep for 2 minutes before next check
     done
 }
 
