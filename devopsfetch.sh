@@ -78,18 +78,25 @@ display_ports() {
     # Define maximum column widths
     max_lengths=(8 10 8 8 22 22 20 10)
 
-    # Calculate maximum widths for columns
+    # Function to calculate maximum column widths
+    calculate_max_widths() {
+        local data="$1"
+        local -n lengths=$2
+        while IFS='|' read -r netid state recv_q send_q local_addr peer_addr process service; do
+            local col_lengths=("${#netid}" "${#state}" "${#recv_q}" "${#send_q}" "${#local_addr}" "${#peer_addr}" "${#process}" "${#service}")
+            for i in "${!col_lengths[@]}"; do
+                if (( col_lengths[i] > lengths[i] )); then
+                    lengths[i]=${col_lengths[i]}
+                fi
+            done
+        done <<< "$data"
+    }
+
     calculate_max_widths "$ports_services" max_lengths
 
     # Header with aligned columns
     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
-    
-    # Build the separator
-    separator="+"
-    for length in "${max_lengths[@]}"; do
-        separator+=$(printf '%*s' "$length" '' | tr ' ' '-')
-        separator+='+'
-    done
+    separator=$(printf "+%s" "${max_lengths[@]}" | awk -v str_repeat="$str_repeat" '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
 
     # Print header and separator
     echo "$header"
@@ -97,49 +104,19 @@ display_ports() {
 
     # Check if a specific port is requested
     if [ -n "$1" ]; then
-        # Display details for a specific port
+        # Filter by the specific port
         sudo ss -tunlp | grep ":$1 " | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
             { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
     else
-        # Display all active ports and services
-        sudo ss -tunlp | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
-            NR > 1 { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
+        # Print all ports and services
+        echo "$ports_services" | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
+            { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
     fi
 
     # Print the closing line
     echo "$separator"
     echo "**************************************************************************************"
 }
-
-
-
-# display_ports() {
-#     echo "****************************** ACTIVE PORTS AND SERVICES ******************************"
-#     ports_services=$(sudo ss -tunlp | awk 'NR>1 {print $1"|" $2"|" $3"|" $4"|" $5"|" $6"|" $7"|" $8}')
-#     max_lengths=(8 10 8 8 22 22 20 10)
-#     calculate_max_widths "$ports_services" max_lengths
-#     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
-    
-#     # Generate separator
-#     separator="|"
-#     for length in "${max_lengths[@]}"; do
-#         separator+=" $(str_repeat '-' $length) |"
-#     done
-    
-#     echo "$header"
-#     echo "$separator"
-    
-#     if [ -n "$1" ]; then
-#         # log_message "Displaying details for port $1"
-#         sudo ss -tunlp | grep ":$1 " | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
-#             { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
-#     else
-#         # log_message "Listing all active ports and services:"
-#         sudo ss -tunlp | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
-#             NR > 1 { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
-#     fi
-#     echo "**************************************************************************************"
-# }
 
 
 # display_docker() {
@@ -416,57 +393,10 @@ display_users() {
     echo "***************************************************************************"
 }
 
-
-# display_time_range() {
-#     local start_date="$1"
-#     # local end_date="$2"
-#     local end_date="${2:-$(date '+%Y-%m-%d %H:%M:%S')}" # Default to current time if end_time is not provided
-
-
-#     if [[ -z "$start_date" || -z "$end_date" ]]; then
-#         echo "Error: Both start and end dates are required."
-#         return 1
-#     fi
-
-#     # Convert start and end dates to UNIX timestamps
-#     local start_timestamp=$(date -d "$start_date" +%s)
-#     local end_timestamp=$(date -d "$end_date" +%s)
-
-#     if [[ $? -ne 0 ]]; then
-#         echo "Error: Invalid date format. Use YYYY-MM-DD."
-#         return 1
-#     fi
-
-#     echo "****************************** SYSTEM LOGS ******************************"
-#     echo "Displaying logs from $start_date to $end_date:"
-
-#     # Read log file line by line
-#     local log_entry
-#     while IFS= read -r log_entry; do
-#         # Extract date from log entry
-#         local log_date=$(echo "$log_entry" | awk '{print $2, $3}')
-#         local log_timestamp=$(date -d "$log_date" +%s 2>/dev/null)
-
-#         if [[ $? -ne 0 ]]; then
-#             continue
-#         fi
-
-#         # Check if log entry is within the date range
-#         if [[ "$log_timestamp" -ge "$start_timestamp" && "$log_timestamp" -le "$end_timestamp" ]]; then
-#             echo "$log_entry"
-#         fi
-#     done < "$LOG_FILE"
-
-#     if [[ ! -s "$LOG_FILE" ]]; then
-#         echo "-- No entries --"
-#     fi
-
-#     echo "***************************************************************************"
-# }
-
 display_time_range() {
     local start_date="$1"
-    local end_date="${2:-$(date '+%Y-%m-%d %H:%M:%S')}" # Default to current time if end_date is not provided
+    local end_date="${2:-$(date '+%Y-%m-%d %H:%M:%S')}"
+    local log_file="${LOG_FILE:-/var/log/monitor.log}"  # Default to /var/log/monitor.log if LOG_FILE is not set
 
     if [[ -z "$start_date" || -z "$end_date" ]]; then
         echo "Error: Both start and end dates are required."
@@ -474,10 +404,10 @@ display_time_range() {
     fi
 
     # Convert start and end dates to UNIX timestamps
-    local start_timestamp
-    local end_timestamp
+    local start_timestamp=$(date -d "$start_date" +%s 2>/dev/null)
+    local end_timestamp=$(date -d "$end_date" +%s 2>/dev/null)
 
-    if ! start_timestamp=$(date -d "$start_date" +%s) || ! end_timestamp=$(date -d "$end_date" +%s); then
+    if [[ $? -ne 0 ]]; then
         echo "Error: Invalid date format. Use YYYY-MM-DD HH:MM:SS."
         return 1
     fi
@@ -485,17 +415,20 @@ display_time_range() {
     echo "****************************** SYSTEM LOGS ******************************"
     echo "Displaying logs from $start_date to $end_date:"
 
+    # Check if the log file exists
+    if [[ ! -f "$log_file" ]]; then
+        echo "Error: Log file $log_file does not exist."
+        return 1
+    fi
+
     # Read log file line by line
     local log_entry
-    local log_date
-    local log_timestamp
-
     while IFS= read -r log_entry; do
         # Extract date from log entry
-        log_date=$(echo "$log_entry" | awk '{print $1" "$2}')
-        
-        # Handle different log date formats if necessary
-        if ! log_timestamp=$(date -d "$log_date" +%s 2>/dev/null); then
+        local log_date=$(echo "$log_entry" | awk -F'[][]' '{print $2}' | awk '{print $1, $2, $3, $4}')
+        local log_timestamp=$(date -d "$log_date" +%s 2>/dev/null)
+
+        if [[ $? -ne 0 ]]; then
             continue
         fi
 
@@ -503,15 +436,14 @@ display_time_range() {
         if [[ "$log_timestamp" -ge "$start_timestamp" && "$log_timestamp" -le "$end_timestamp" ]]; then
             echo "$log_entry"
         fi
-    done < "$LOG_FILE"
+    done < "$log_file"
 
-    if [[ ! -s "$LOG_FILE" ]]; then
+    if [[ ! -s "$log_file" ]]; then
         echo "-- No entries --"
     fi
 
     echo "***************************************************************************"
 }
-
 
 
 monitor_mode() {
