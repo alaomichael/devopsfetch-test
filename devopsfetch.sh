@@ -38,6 +38,39 @@ calculate_max_widths() {
     done <<< "$data"
 }
 
+# str_repeat() {
+#     local char=$1
+#     local num=$2
+#     printf "%${num}s" | tr ' ' "$char"
+# }
+
+# log_message() {
+#     local message="$1"
+#     echo "[INFO] $(date): $message" | tee -a "$LOG_FILE"
+# }
+
+# display_ports() {
+#     echo "****************************** ACTIVE PORTS AND SERVICES ******************************"
+#     ports_services=$(sudo ss -tunlp | awk 'NR>1 {print $1"|" $2"|" $3"|" $4"|" $5"|" $6"|" $7"|" $8}')
+#     max_lengths=(8 10 8 8 22 22 20 10)
+#     calculate_max_widths "$ports_services" max_lengths
+#     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
+#     separator=$(printf "%s" "${max_lengths[@]}" | awk '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
+#     echo "$header"
+#     echo "$separator"
+    
+#     if [ -n "$1" ]; then
+#         log_message "Displaying details for port $1"
+#         sudo ss -tunlp | grep ":$1 " | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
+#             { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
+#     else
+#         log_message "Listing all active ports and services:"
+#         sudo ss -tunlp | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
+#             NR > 1 { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
+#     fi
+#     echo "**************************************************************************************"
+# }
+
 str_repeat() {
     local char=$1
     local num=$2
@@ -55,7 +88,13 @@ display_ports() {
     max_lengths=(8 10 8 8 22 22 20 10)
     calculate_max_widths "$ports_services" max_lengths
     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
-    separator=$(printf "%s" "${max_lengths[@]}" | awk '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
+    
+    # Generate separator
+    separator="|"
+    for length in "${max_lengths[@]}"; do
+        separator+=" $(str_repeat '-' $length) |"
+    done
+    
     echo "$header"
     echo "$separator"
     
@@ -70,6 +109,7 @@ display_ports() {
     fi
     echo "**************************************************************************************"
 }
+
 
 # display_docker() {
 #     local container_name="$1"
