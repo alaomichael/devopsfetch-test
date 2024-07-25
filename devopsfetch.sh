@@ -309,11 +309,56 @@ display_users() {
 }
 
 
+# display_time_range() {
+#     local start_date="$1"
+#     # local end_date="$2"
+#     local end_date="${2:-$(date '+%Y-%m-%d %H:%M:%S')}" # Default to current time if end_time is not provided
+
+
+#     if [[ -z "$start_date" || -z "$end_date" ]]; then
+#         echo "Error: Both start and end dates are required."
+#         return 1
+#     fi
+
+#     # Convert start and end dates to UNIX timestamps
+#     local start_timestamp=$(date -d "$start_date" +%s)
+#     local end_timestamp=$(date -d "$end_date" +%s)
+
+#     if [[ $? -ne 0 ]]; then
+#         echo "Error: Invalid date format. Use YYYY-MM-DD."
+#         return 1
+#     fi
+
+#     echo "****************************** SYSTEM LOGS ******************************"
+#     echo "Displaying logs from $start_date to $end_date:"
+
+#     # Read log file line by line
+#     local log_entry
+#     while IFS= read -r log_entry; do
+#         # Extract date from log entry
+#         local log_date=$(echo "$log_entry" | awk '{print $2, $3}')
+#         local log_timestamp=$(date -d "$log_date" +%s 2>/dev/null)
+
+#         if [[ $? -ne 0 ]]; then
+#             continue
+#         fi
+
+#         # Check if log entry is within the date range
+#         if [[ "$log_timestamp" -ge "$start_timestamp" && "$log_timestamp" -le "$end_timestamp" ]]; then
+#             echo "$log_entry"
+#         fi
+#     done < "$LOG_FILE"
+
+#     if [[ ! -s "$LOG_FILE" ]]; then
+#         echo "-- No entries --"
+#     fi
+
+#     echo "***************************************************************************"
+# }
+
 display_time_range() {
     local start_date="$1"
-    # local end_date="$2"
-    local end_date="${2:-$(date '+%Y-%m-%d %H:%M:%S')}" # Default to current time if end_time is not provided
-
+    local end_date="${2:-$(date '+%Y-%m-%d %H:%M:%S')}" # Default to current time if end_date is not provided
 
     if [[ -z "$start_date" || -z "$end_date" ]]; then
         echo "Error: Both start and end dates are required."
@@ -321,11 +366,11 @@ display_time_range() {
     fi
 
     # Convert start and end dates to UNIX timestamps
-    local start_timestamp=$(date -d "$start_date" +%s)
-    local end_timestamp=$(date -d "$end_date" +%s)
+    local start_timestamp
+    local end_timestamp
 
-    if [[ $? -ne 0 ]]; then
-        echo "Error: Invalid date format. Use YYYY-MM-DD."
+    if ! start_timestamp=$(date -d "$start_date" +%s) || ! end_timestamp=$(date -d "$end_date" +%s); then
+        echo "Error: Invalid date format. Use YYYY-MM-DD HH:MM:SS."
         return 1
     fi
 
@@ -334,12 +379,15 @@ display_time_range() {
 
     # Read log file line by line
     local log_entry
+    local log_date
+    local log_timestamp
+
     while IFS= read -r log_entry; do
         # Extract date from log entry
-        local log_date=$(echo "$log_entry" | awk '{print $2, $3}')
-        local log_timestamp=$(date -d "$log_date" +%s 2>/dev/null)
-
-        if [[ $? -ne 0 ]]; then
+        log_date=$(echo "$log_entry" | awk '{print $1" "$2}')
+        
+        # Handle different log date formats if necessary
+        if ! log_timestamp=$(date -d "$log_date" +%s 2>/dev/null); then
             continue
         fi
 
@@ -355,6 +403,7 @@ display_time_range() {
 
     echo "***************************************************************************"
 }
+
 
 
 monitor_mode() {
