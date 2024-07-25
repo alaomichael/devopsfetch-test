@@ -1,34 +1,7 @@
 #!/bin/bash
 
+# Log file
 LOG_FILE="/var/log/devopsfetch.log"
-
-# Function to repeat characters
-str_repeat() {
-    local char="$1"
-    local count="$2"
-    printf "%${count}s" | tr ' ' "$char"
-}
-
-# Function to calculate maximum column widths
-calculate_max_widths() {
-    local data="$1"
-    local -n widths_ref="$2"
-    
-    # Initialize widths to 0
-    for i in "${!widths_ref[@]}"; do
-        widths_ref[$i]=0
-    done
-
-    # Calculate max widths
-    echo "$data" | while IFS='|' read -r -a fields; do
-        for i in "${!fields[@]}"; do
-            local len=${#fields[$i]}
-            if (( len > widths_ref[i] )); then
-                widths_ref[i]=$len
-            fi
-        done
-    done
-}
 
 # Function to log messages
 log_message() {
@@ -43,24 +16,18 @@ fi
 
 # Function to display active ports and services
 display_ports() {
+    local port="$1"
     echo "****************************** ACTIVE PORTS AND SERVICES ******************************"
-    
-    # Extract and format active ports and services
-    local ports_info
-    ports_info=$(netstat -tuln 2>/dev/null | awk 'NR>2 {print $1"|" $6"|" $5"|" $4"|" $7"|" $9}')
-    
-    # Determine maximum column widths for ports info
-    local max_ports_lengths=(10 10 15 15 30 30)
-    calculate_max_widths "$ports_info" max_ports_lengths
+    echo "| Netid | State       | Recv-Q | Send-Q | Local Address:Port | Peer Address:Port |"
+    echo "|-------|-------------|--------|--------|--------------------|--------------------|"
 
-    # Print Ports and Services
-    printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n" "${max_ports_lengths[0]}" "Netid" "${max_ports_lengths[1]}" "State" "${max_ports_lengths[2]}" "Recv-Q" "${max_ports_lengths[3]}" "Send-Q" "${max_ports_lengths[4]}" "Local Address:Port" "${max_ports_lengths[5]}" "Peer Address:Port"
-    printf "| %s | %s | %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_ports_lengths[0]}")" "$(str_repeat '-' "${max_ports_lengths[1]}")" "$(str_repeat '-' "${max_ports_lengths[2]}")" "$(str_repeat '-' "${max_ports_lengths[3]}")" "$(str_repeat '-' "${max_ports_lengths[4]}")" "$(str_repeat '-' "${max_ports_lengths[5]}")"
-    echo "$ports_info" | awk -v max0="${max_ports_lengths[0]}" -v max1="${max_ports_lengths[1]}" -v max2="${max_ports_lengths[2]}" -v max3="${max_ports_lengths[3]}" -v max4="${max_ports_lengths[4]}" -v max5="${max_ports_lengths[5]}" '
-    {
-        split($0, fields, "|");
-        printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, fields[1], max1, fields[2], max2, fields[3], max3, fields[4], max4, fields[5], max5, fields[6];
-    }'
+    if [ -z "$port" ]; then
+        # No specific port provided; display all
+        netstat -tulnp 2>/dev/null | awk 'NR>2 {print "| " $1 " | " $6 " | " $3 " | " $4 " | " $5 " | " $6 " |"}'
+    else
+        # Specific port provided; filter results
+        netstat -tulnp 2>/dev/null | grep ":$port" | awk 'NR>2 {print "| " $1 " | " $6 " | " $3 " | " $4 " | " $5 " | " $6 " |"}'
+    fi
     
     echo "**************************************************************************************"
 }
@@ -68,83 +35,82 @@ display_ports() {
 # Function to display Docker status
 display_docker() {
     echo "****************************** DOCKER STATUS ******************************"
-
-    # Print Docker Images
     echo "Docker Images:"
-    local images_info
-    images_info=$(docker images --format "{{.Repository}}|{{.Tag}}|{{.ID}}|{{.Size}}" 2>/dev/null)
+    echo "| REPOSITORY                               | TAG                  | IMAGE ID                                           | SIZE                 |"
+    echo "|-----------------------------------------|----------------------|---------------------------------------------------|----------------------|"
     
-    # Determine maximum column widths for images info
-    local max_images_lengths=(30 20 15 10)
-    calculate_max_widths "$images_info" max_images_lengths
-
-    printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_images_lengths[0]}" "REPOSITORY" "${max_images_lengths[1]}" "TAG" "${max_images_lengths[2]}" "IMAGE ID" "${max_images_lengths[3]}" "SIZE"
-    printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_images_lengths[0]}")" "$(str_repeat '-' "${max_images_lengths[1]}")" "$(str_repeat '-' "${max_images_lengths[2]}")" "$(str_repeat '-' "${max_images_lengths[3]}")"
-    echo "$images_info" | awk -v max0="${max_images_lengths[0]}" -v max1="${max_images_lengths[1]}" -v max2="${max_images_lengths[2]}" -v max3="${max_images_lengths[3]}" '
-    {
-        split($0, fields, "|");
-        printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, fields[1], max1, fields[2], max2, fields[3], max3, fields[4];
-    }'
-
-    # Print Docker Containers
-    echo ""
+    docker images --format "{{.Repository}} | {{.Tag}} | {{.ID}} | {{.Size}}" | awk '{print "| " $1 " | " $2 " | " $3 " | " $4 " |"}'
+    
+    echo
     echo "Docker Containers:"
-    local containers_info
-    containers_info=$(docker ps -a --format "{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}" 2>/dev/null)
+    echo "| NAMES                                                       | IMAGE                               | STATUS               | PORTS                |"
+    echo "|-------------------------------------------------------------|-----------------------------------|----------------------|----------------------|"
     
-    # Determine maximum column widths for containers info
-    local max_containers_lengths=(30 30 20 20)
-    calculate_max_widths "$containers_info" max_containers_lengths
-
-    printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_containers_lengths[0]}" "NAMES" "${max_containers_lengths[1]}" "IMAGE" "${max_containers_lengths[2]}" "STATUS" "${max_containers_lengths[3]}" "PORTS"
-    printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_containers_lengths[0]}")" "$(str_repeat '-' "${max_containers_lengths[1]}")" "$(str_repeat '-' "${max_containers_lengths[2]}")" "$(str_repeat '-' "${max_containers_lengths[3]}")"
-    echo "$containers_info" | awk -v max0="${max_containers_lengths[0]}" -v max1="${max_containers_lengths[1]}" -v max2="${max_containers_lengths[2]}" -v max3="${max_containers_lengths[3]}" '
-    {
-        split($0, fields, "|");
-        printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, fields[1], max1, fields[2], max2, fields[3], max3, fields[4];
-    }'
-    
+    docker ps -a --format "{{.Names}} | {{.Image}} | {{.Status}} | {{.Ports}}" | awk '{print "| " $1 " | " $2 " | " $3 " | " $4 " |"}'
     echo "***************************************************************************"
 }
 
 # Function to display Nginx domain validation
 display_nginx() {
     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
-    
-    # Extract and format Nginx domain validation information
-    local nginx_domains
-    nginx_domains=$(grep -r "server_name" /etc/nginx/sites-enabled/ 2>/dev/null | awk -F'[ ;]' '{print $2"|" $1"|" $3}')
-    
-    # Determine maximum column widths for domains info
-    local max_nginx_lengths=(30 30 50)
-    calculate_max_widths "$nginx_domains" max_nginx_lengths
 
-    # Print Nginx Domains
-    printf "| %-*s | %-*s | %-*s |\n" "${max_nginx_lengths[0]}" "DOMAIN" "${max_nginx_lengths[1]}" "PROXY" "${max_nginx_lengths[2]}" "CONFIGURATION FILE"
-    printf "| %s | %s | %s |\n" "$(str_repeat '-' "${max_nginx_lengths[0]}")" "$(str_repeat '-' "${max_nginx_lengths[1]}")" "$(str_repeat '-' "${max_nginx_lengths[2]}")"
-    echo "$nginx_domains" | awk -v max0="${max_nginx_lengths[0]}" -v max1="${max_nginx_lengths[1]}" -v max2="${max_nginx_lengths[2]}" '
-    {
-        split($0, fields, "|");
-        printf "| %-*s | %-*s | %-*s |\n", max0, fields[1], max1, fields[2], max2, fields[3];
-    }'
-    
+    if [ -n "$1" ]; then
+        # Display Nginx configuration for a specific domain
+        log_message "Displaying Nginx configuration for domain $1"
+        domain_config=$(sudo nginx -T 2>/dev/null | awk "/server_name $1/,/}/")
+        if [ -z "$domain_config" ]; then
+            echo "Domain $1 not found in Nginx configuration."
+        else
+            echo "Configuration for domain $1:"
+            echo "$domain_config"
+        fi
+    else
+        # List all Nginx domains and their ports
+        log_message "Listing all Nginx domains and their ports:"
+        echo "| SERVER NAME           | PORT        |"
+        echo "|-----------------------|-------------|"
+        
+        sudo nginx -T 2>/dev/null | awk '
+            /server_name/ {
+                server_name = $2;
+                getline;
+                while ($0 !~ /}/) {
+                    if ($0 ~ /listen/) {
+                        port = $2;
+                        gsub(";", "", port);
+                        printf "| %-21s | %-11s |\n", server_name, port;
+                    }
+                    getline;
+                }
+            }'
+    fi
+
     echo "**************************************************************************************"
 }
 
-# Function to display system logs within a time range
+
+# Function to display users and their details
+display_users() {
+    echo "****************************** USERS AND LAST LOGIN TIMES ******************************"
+    echo "| USERNAME        | UID  | GID  | COMMENT                             |"
+    echo "|-----------------|------|------|-------------------------------------|"
+    
+    awk -F: '{print "| " $1 " | " $3 " | " $4 " | " $5 " |"}' /etc/passwd
+
+    echo "**************************************************************************************"
+}
+
+# Function to display logs within a specific time range
 display_time_range() {
     local start_time="$1"
-    # local end_time="$2"
     local end_time="${2:-$(date '+%Y-%m-%d %H:%M:%S')}" # Default to current time if end_time is not provided
 
     echo "****************************** SYSTEM LOGS ******************************"
+    echo "Logs from $start_time to $end_time:"
     
     local log_records
-    if [ -z "$end_time" ]; then
-        log_records=$(grep -E "$start_time" /var/log/syslog 2>/dev/null)
-    else
-        log_records=$(awk -v start="$start_time" -v end="$end_time" '$0 >= start && $0 <= end' /var/log/syslog 2>/dev/null)
-    fi
+    log_records=$(awk -v start="$start_time" -v end="$end_time" \
+        '$0 >= start && $0 <= end' /var/log/syslog 2>/dev/null)
     
     if [ -z "$log_records" ]; then
         echo "-- No entries --"
@@ -155,31 +121,7 @@ display_time_range() {
     echo "**************************************************************************************"
 }
 
-# Function to display users and their last login times
-display_users() {
-    echo "****************************** USERS AND LAST LOGIN TIMES ******************************"
-    
-    # Extract and format user info
-    local user_info
-    user_info=$(getent passwd | awk -F':' '{print $1"|" $3"|" $4"|" $5}')
-    
-    # Determine maximum column widths for user info
-    local max_user_lengths=(20 10 10 50)
-    calculate_max_widths "$user_info" max_user_lengths
-
-    # Print User Details
-    printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_user_lengths[0]}" "USERNAME" "${max_user_lengths[1]}" "UID" "${max_user_lengths[2]}" "GID" "${max_user_lengths[3]}" "COMMENT"
-    printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_user_lengths[0]}")" "$(str_repeat '-' "${max_user_lengths[1]}")" "$(str_repeat '-' "${max_user_lengths[2]}")" "$(str_repeat '-' "${max_user_lengths[3]}")"
-    echo "$user_info" | awk -v max0="${max_user_lengths[0]}" -v max1="${max_user_lengths[1]}" -v max2="${max_user_lengths[2]}" -v max3="${max_user_lengths[3]}" '
-    {
-        split($0, fields, "|");
-        printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, fields[1], max1, fields[2], max2, fields[3], max3, fields[4];
-    }'
-    
-    echo "**************************************************************************************"
-}
-
-# Function to monitor all sections periodically
+# Function for monitoring mode
 monitor_mode() {
     log_message "Monitoring mode started"
     while true; do
@@ -193,10 +135,9 @@ monitor_mode() {
         log_message "Logging Nginx domains and ports:"
         display_nginx | tee -a "$LOG_FILE"
         
-        log_message "Logging user logins:"
+        log_message "Logging user details:"
         display_users | tee -a "$LOG_FILE"
         
-        log_message "Finished logging, sleeping for 5 minutes."
         sleep 300 # Sleep for 5 minutes before next check
     done
 }
@@ -207,13 +148,13 @@ case "$1" in
         display_ports "$2"
         ;;
     -d|--docker)
-        display_docker "$2"
+        display_docker
         ;;
     -n|--nginx)
-        display_nginx "$2"
+        display_nginx
         ;;
     -u|--users)
-        display_users "$2"
+        display_users
         ;;
     -t|--time)
         display_time_range "$2" "$3"
@@ -224,10 +165,10 @@ case "$1" in
     -h|--help)
         echo "Usage: $0 [OPTIONS]"
         echo "Options:"
-        echo "  -p, --port <port>        Display details for a specific port"
+        echo "  -p, --port [port]        Display details for a specific port"
         echo "  -d, --docker [container_name]    List Docker images and containers, or details for a specific container"
         echo "  -n, --nginx [domain]     Display Nginx configuration, or for a specific domain"
-        echo "  -u, --users [username]   List users and last login times, or details for a specific user"
+        echo "  -u, --users [username]   List users and details, or a specific user"
         echo "  -t, --time <start> <end> Display logs within a specific time range"
         echo "  -m, --monitor            Monitor mode to display all sections periodically"
         echo "  -h, --help               Display this help message"
@@ -236,8 +177,6 @@ case "$1" in
         echo "Invalid option. Use -h or --help for usage information."
         ;;
 esac
-
-
 
 
 # #!/bin/bash
