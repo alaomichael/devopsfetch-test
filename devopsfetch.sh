@@ -74,49 +74,44 @@ display_ports() {
 
     # Retrieve port and service information
     ports_services=$(sudo ss -tunlp | awk 'NR>1 {print $1"|" $2"|" $3"|" $4"|" $5"|" $6"|" $7"|" $8}')
-
+    
     # Define maximum column widths
+    local max_lengths
     max_lengths=(8 10 8 8 22 22 20 10)
 
-    # Function to calculate maximum column widths
-    calculate_max_widths() {
-        local data="$1"
-        local -n lengths=$2
-        while IFS='|' read -r netid state recv_q send_q local_addr peer_addr process service; do
-            local col_lengths=("${#netid}" "${#state}" "${#recv_q}" "${#send_q}" "${#local_addr}" "${#peer_addr}" "${#process}" "${#service}")
-            for i in "${!col_lengths[@]}"; do
-                if (( col_lengths[i] > lengths[i] )); then
-                    lengths[i]=${col_lengths[i]}
-                fi
-            done
-        done <<< "$data"
+    # Function to create a separator line
+    create_separator() {
+        local sep=""
+        for width in "${max_lengths[@]}"; do
+            sep+=$(printf "%${width}s" | tr ' ' '-')
+            sep+="+"
+        done
+        echo "+${sep::-1}+"  # Remove the trailing "+"
     }
-
-    calculate_max_widths "$ports_services" max_lengths
 
     # Header with aligned columns
     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
-    separator=$(printf "+%s" "${max_lengths[@]}" | awk -v str_repeat="$str_repeat" '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
-
+    
     # Print header and separator
     echo "$header"
-    echo "$separator"
-
+    echo "$(create_separator)"
+    
     # Check if a specific port is requested
     if [ -n "$1" ]; then
-        # Filter by the specific port
+        # log_message "Displaying details for port $1"
         sudo ss -tunlp | grep ":$1 " | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
             { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
     else
-        # Print all ports and services
-        echo "$ports_services" | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
-            { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
+        # log_message "Listing all active ports and services:"
+        sudo ss -tunlp | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" -v max3="${max_lengths[3]}" -v max4="${max_lengths[4]}" -v max5="${max_lengths[5]}" -v max6="${max_lengths[6]}" -v max7="${max_lengths[7]}" '
+            NR > 1 { printf "| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3, max3, $4, max4, $5, max5, $6, max6, $7, max7, $8; }'
     fi
 
     # Print the closing line
-    echo "$separator"
+    echo "$(create_separator)"
     echo "**************************************************************************************"
 }
+
 
 
 # display_docker() {
@@ -191,126 +186,101 @@ display_docker() {
 
 
 # display_nginx() {
+#     local domain="$1"
 #     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
-#     nginx_config=$(sudo nginx -T 2>/dev/null | awk '{print $0"|" $0}' | sed 's/|/ /')
-#     max_lengths=(20 10 50)
-#     calculate_max_widths "$nginx_config" max_lengths
-#     if [ -n "$1" ]; then
-#         log_message "Displaying Nginx configuration for domain $1"
-#         domain_config=$(echo "$nginx_config" | awk "/server_name $1/,/}/")
+
+#     if [ -n "$domain" ]; then
+#         echo "[INFO] $(date): Displaying Nginx configuration for domain $domain"
+        
+#         # Fetch Nginx configuration
+#         nginx_config=$(sudo nginx -T 2>/dev/null)
+        
+#         # Extract domain-specific configuration
+#         domain_config=$(echo "$nginx_config" | awk "/server_name $domain/,/}/")
+        
 #         if [ -z "$domain_config" ]; then
-#             echo "Domain $1 not found in Nginx configuration."
+#             echo "Domain $domain not found in Nginx configuration."
 #         else
-#             echo "$domain_config"
+#             echo "$domain_config" | sed 's/^/ /'
 #         fi
 #     else
-#         log_message "Listing all Nginx domains and their ports:"
-#         printf "| %-*s | %-*s | %-*s |\n" "${max_lengths[0]}" "DOMAIN" "${max_lengths[1]}" "PROXY" "${max_lengths[2]}" "CONFIGURATION FILE"
-#         printf "| %s | %s | %s |\n" "$(str_repeat '-' "${max_lengths[0]}")" "$(str_repeat '-' "${max_lengths[1]}")" "$(str_repeat '-' "${max_lengths[2]}")"
+#         echo "[INFO] $(date): Listing all Nginx domains and their ports:"
+        
+#         # Fetch Nginx configuration
+#         nginx_config=$(sudo nginx -T 2>/dev/null)
+        
+#         # Define maximum column widths
+#         max_lengths=(20 10 50)
+        
+#         # Calculate maximum widths for columns
+#         calculate_max_widths "$nginx_config" max_lengths
+        
+#         # Header with aligned columns
+#         header="| DOMAIN                 | PROXY    | CONFIGURATION FILE                       |"
+#         separator=$(printf "%s" "${max_lengths[@]}" | awk '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
+        
+#         # Print header and separator
+#         echo "$header"
+#         echo "$separator"
+        
+#         # Extract domains and ports
 #         echo "$nginx_config" | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" '
-#         {
-#             printf "| %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3;
+#         /server_name/ {
+#             printf "| %-*s | %-*s | %-*s |\n", max0, $2, max1, "N/A", max2, "N/A";
 #         }'
+        
+#         # Print the closing line
+#         echo "$separator"
 #     fi
+
 #     echo "**************************************************************************************"
 # }
-
 
 display_nginx() {
     local domain="$1"
+    
     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
+    echo "[INFO] $(date "+%a %b %d %T %Y"): Listing all Nginx domains and their ports:"
 
+    # Define column widths
+    local col_width_domain=40
+    local col_width_proxy=10
+    local col_width_config_file=30
+
+    # Function to create a separator line
+    create_separator() {
+        printf "+%s+%s+%s+\n" \
+            "$(printf "%${col_width_domain}s" | tr ' ' '-')"
+            "$(printf "%${col_width_proxy}s" | tr ' ' '-')"
+            "$(printf "%${col_width_config_file}s" | tr ' ' '-')"
+    }
+
+    # Print header
+    printf "| %-*s | %-*s | %-*s |\n" \
+        "$col_width_domain" "DOMAIN" \
+        "$col_width_proxy" "PROXY" \
+        "$col_width_config_file" "CONFIGURATION FILE"
+    create_separator
+
+    # Fetch and format Nginx configuration details
     if [ -n "$domain" ]; then
-        echo "[INFO] $(date): Displaying Nginx configuration for domain $domain"
-        
-        # Fetch Nginx configuration
-        nginx_config=$(sudo nginx -T 2>/dev/null)
-        
-        # Extract domain-specific configuration
-        domain_config=$(echo "$nginx_config" | awk "/server_name $domain/,/}/")
-        
-        if [ -z "$domain_config" ]; then
-            echo "Domain $domain not found in Nginx configuration."
-        else
-            echo "$domain_config" | sed 's/^/ /'
-        fi
+        # Filtering specific domain
+        sudo grep -E "server_name.*$domain|root" /etc/nginx/nginx.conf /etc/nginx/sites-enabled/* 2>/dev/null \
+            | sed 's/^/# /' \
+            | awk -v w1="$col_width_domain" -v w2="$col_width_proxy" -v w3="$col_width_config_file" \
+            '{ printf "| %-*s | %-*s | %-*s |\n", w1, $1, w2, "N/A", w3, "N/A" }'
     else
-        echo "[INFO] $(date): Listing all Nginx domains and their ports:"
-        
-        # Fetch Nginx configuration
-        nginx_config=$(sudo nginx -T 2>/dev/null)
-        
-        # Define maximum column widths
-        max_lengths=(20 10 50)
-        
-        # Calculate maximum widths for columns
-        calculate_max_widths "$nginx_config" max_lengths
-        
-        # Header with aligned columns
-        header="| DOMAIN                 | PROXY    | CONFIGURATION FILE                       |"
-        separator=$(printf "%s" "${max_lengths[@]}" | awk '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
-        
-        # Print header and separator
-        echo "$header"
-        echo "$separator"
-        
-        # Extract domains and ports
-        echo "$nginx_config" | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" '
-        /server_name/ {
-            printf "| %-*s | %-*s | %-*s |\n", max0, $2, max1, "N/A", max2, "N/A";
-        }'
-        
-        # Print the closing line
-        echo "$separator"
+        # List all domains
+        sudo grep -E 'server_name' /etc/nginx/nginx.conf /etc/nginx/sites-enabled/* 2>/dev/null \
+            | sed 's/^/# /' \
+            | awk -v w1="$col_width_domain" -v w2="$col_width_proxy" -v w3="$col_width_config_file" \
+            '{ printf "| %-*s | %-*s | %-*s |\n", w1, $1, w2, "N/A", w3, "N/A" }'
     fi
 
+    # Print closing line
+    create_separator
     echo "**************************************************************************************"
 }
-
-
-
-# display_nginx() {
-#     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
-#     # log_message "Listing all Nginx domains and their ports:"
-
-#     nginx_config=$(sudo nginx -T 2>/dev/null)
-#     if [ $? -ne 0 ]; then
-#         echo "Error: Unable to fetch Nginx configuration. Ensure Nginx is installed and running."
-#         return 1
-#     fi
-
-#     domains=()
-#     proxies=()
-#     config_files=()
-
-#     current_file=""
-#     while IFS= read -r line; do
-#         if [[ "$line" =~ ^#\ configuration\ file:\ (.*) ]]; then
-#             current_file="${BASH_REMATCH[1]}"
-#         fi
-#         if [[ "$line" =~ server_name ]]; then
-#             domain=$(echo "$line" | awk '{print $2}' | sed 's/;//')
-#             domains+=("$domain")
-#             proxies+=("N/A") # Placeholder, need logic to fetch proxy if required
-#             config_files+=("$current_file")
-#         fi
-#     done <<< "$nginx_config"
-
-#     max_domain_length=$(printf "%s\n" "${domains[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
-#     max_proxy_length=$(printf "%s\n" "${proxies[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
-#     max_config_length=$(printf "%s\n" "${config_files[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
-
-#     max_lengths=($((max_domain_length+5)) $((max_proxy_length+5)) $((max_config_length+5)))
-
-#     printf "| %-*s | %-*s | %-*s |\n" "${max_lengths[0]}" "DOMAIN" "${max_lengths[1]}" "PROXY" "${max_lengths[2]}" "CONFIGURATION FILE"
-#     printf "| %s | %s | %s |\n" "$(str_repeat '-' "${max_lengths[0]}")" "$(str_repeat '-' "${max_lengths[1]}")" "$(str_repeat '-' "${max_lengths[2]}")"
-
-#     for i in "${!domains[@]}"; do
-#         printf "| %-*s | %-*s | %-*s |\n" "${max_lengths[0]}" "${domains[$i]}" "${max_lengths[1]}" "${proxies[$i]}" "${max_lengths[2]}" "${config_files[$i]}"
-#     done
-
-#     echo "**************************************************************************************"
-# }
 
 
 display_users() {
