@@ -182,28 +182,71 @@ display_docker() {
 }
 
 
+# display_nginx() {
+#     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
+#     nginx_config=$(sudo nginx -T 2>/dev/null | awk '{print $0"|" $0}' | sed 's/|/ /')
+#     max_lengths=(20 10 50)
+#     calculate_max_widths "$nginx_config" max_lengths
+#     if [ -n "$1" ]; then
+#         log_message "Displaying Nginx configuration for domain $1"
+#         domain_config=$(echo "$nginx_config" | awk "/server_name $1/,/}/")
+#         if [ -z "$domain_config" ]; then
+#             echo "Domain $1 not found in Nginx configuration."
+#         else
+#             echo "$domain_config"
+#         fi
+#     else
+#         log_message "Listing all Nginx domains and their ports:"
+#         printf "| %-*s | %-*s | %-*s |\n" "${max_lengths[0]}" "DOMAIN" "${max_lengths[1]}" "PROXY" "${max_lengths[2]}" "CONFIGURATION FILE"
+#         printf "| %s | %s | %s |\n" "$(str_repeat '-' "${max_lengths[0]}")" "$(str_repeat '-' "${max_lengths[1]}")" "$(str_repeat '-' "${max_lengths[2]}")"
+#         echo "$nginx_config" | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" '
+#         {
+#             printf "| %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3;
+#         }'
+#     fi
+#     echo "**************************************************************************************"
+# }
+
 display_nginx() {
     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
-    nginx_config=$(sudo nginx -T 2>/dev/null | awk '{print $0"|" $0}' | sed 's/|/ /')
-    max_lengths=(20 10 50)
-    calculate_max_widths "$nginx_config" max_lengths
-    if [ -n "$1" ]; then
-        log_message "Displaying Nginx configuration for domain $1"
-        domain_config=$(echo "$nginx_config" | awk "/server_name $1/,/}/")
-        if [ -z "$domain_config" ]; then
-            echo "Domain $1 not found in Nginx configuration."
-        else
-            echo "$domain_config"
-        fi
-    else
-        log_message "Listing all Nginx domains and their ports:"
-        printf "| %-*s | %-*s | %-*s |\n" "${max_lengths[0]}" "DOMAIN" "${max_lengths[1]}" "PROXY" "${max_lengths[2]}" "CONFIGURATION FILE"
-        printf "| %s | %s | %s |\n" "$(str_repeat '-' "${max_lengths[0]}")" "$(str_repeat '-' "${max_lengths[1]}")" "$(str_repeat '-' "${max_lengths[2]}")"
-        echo "$nginx_config" | awk -v max0="${max_lengths[0]}" -v max1="${max_lengths[1]}" -v max2="${max_lengths[2]}" '
-        {
-            printf "| %-*s | %-*s | %-*s |\n", max0, $1, max1, $2, max2, $3;
-        }'
+    log_message "Listing all Nginx domains and their ports:"
+
+    nginx_config=$(sudo nginx -T 2>/dev/null)
+    if [ $? -ne 0 ]; then
+        echo "Error: Unable to fetch Nginx configuration. Ensure Nginx is installed and running."
+        return 1
     fi
+
+    domains=()
+    proxies=()
+    config_files=()
+
+    current_file=""
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^#\ configuration\ file:\ (.*) ]]; then
+            current_file="${BASH_REMATCH[1]}"
+        fi
+        if [[ "$line" =~ server_name ]]; then
+            domain=$(echo "$line" | awk '{print $2}' | sed 's/;//')
+            domains+=("$domain")
+            proxies+=("N/A") # Placeholder, need logic to fetch proxy if required
+            config_files+=("$current_file")
+        fi
+    done <<< "$nginx_config"
+
+    max_domain_length=$(printf "%s\n" "${domains[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
+    max_proxy_length=$(printf "%s\n" "${proxies[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
+    max_config_length=$(printf "%s\n" "${config_files[@]}" | awk '{ if ( length > L ) { L=length } } END { print L }')
+
+    max_lengths=($((max_domain_length+5)) $((max_proxy_length+5)) $((max_config_length+5)))
+
+    printf "| %-*s | %-*s | %-*s |\n" "${max_lengths[0]}" "DOMAIN" "${max_lengths[1]}" "PROXY" "${max_lengths[2]}" "CONFIGURATION FILE"
+    printf "| %s | %s | %s |\n" "$(str_repeat '-' "${max_lengths[0]}")" "$(str_repeat '-' "${max_lengths[1]}")" "$(str_repeat '-' "${max_lengths[2]}")"
+
+    for i in "${!domains[@]}"; do
+        printf "| %-*s | %-*s | %-*s |\n" "${max_lengths[0]}" "${domains[$i]}" "${max_lengths[1]}" "${proxies[$i]}" "${max_lengths[2]}" "${config_files[$i]}"
+    done
+
     echo "**************************************************************************************"
 }
 
@@ -246,43 +289,90 @@ display_users() {
     local username="$1"
     echo "****************************** USER DETAILS ******************************"
 
-    # Capture user details
-    if [ -z "$username" ]; then
-        user_info=$(getent passwd | awk -F: '{print $1"|" $5"|" $6"|" $7}')
-        login_info=$(last -w | awk '{print $1"|" $4" "$5" "$6" "$7" "$8" "$9" "$10}')
-    else
-        user_info=$(getent passwd | grep "^$username:" | awk -F: '{print $1"|" $5"|" $6"|" $7}')
-        login_info=$(last -w "$username" | awk '{print $1"|" $4" "$5" "$6" "$7" "$8" "$9" "$10}')
+    # Fetch user information
+    user_info=$(getent passwd "$username")
+    if [ -z "$user_info" ]; then
+        echo "Error: User $username not found."
+        return 1
     fi
 
-    # Determine maximum column widths for user details
-    max_user_lengths=(40 20 20 20)
-    calculate_max_widths "$user_info" max_user_lengths
+    IFS=':' read -r uname password uid gid full_name home_dir shell <<< "$user_info"
 
-    # Determine maximum column widths for login records
-    max_login_lengths=(15 20 20 20)
-    calculate_max_widths "$login_info" max_login_lengths
+    printf "| %-*s | %-*s | %-*s | %-*s |\n" 40 "Username" 20 "Full Name" 20 "Home Directory" 20 "Shell"
+    printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' 40)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)" "$(str_repeat '-' 20)"
+    printf "| %-*s | %-*s | %-*s | %-*s |\n" 40 "$uname" 20 "$full_name" 20 "$home_dir" 20 "$shell"
 
-    # Print User Details
-    printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_user_lengths[0]}" "Username" "${max_user_lengths[1]}" "Full Name" "${max_user_lengths[2]}" "Home Directory" "${max_user_lengths[3]}" "Shell"
-    printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_user_lengths[0]}")" "$(str_repeat '-' "${max_user_lengths[1]}")" "$(str_repeat '-' "${max_user_lengths[2]}")" "$(str_repeat '-' "${max_user_lengths[3]}")"
-    echo "$user_info" | awk -v max0="${max_user_lengths[0]}" -v max1="${max_user_lengths[1]}" -v max2="${max_user_lengths[2]}" -v max3="${max_user_lengths[3]}" '
-    {
-        split($0, fields, "|");
-        printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, fields[1], max1, fields[2], max2, fields[3], max3, fields[4];
-    }'
     echo ""
+    echo "| User            | Login Time           | Logout Time          | Duration             |"
+    echo "| --------------- | -------------------- | -------------------- | -------------------- |"
 
-    # Print Login Records
-    printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_login_lengths[0]}" "User" "${max_login_lengths[1]}" "Login Time" "${max_login_lengths[2]}" "Logout Time" "${max_login_lengths[3]}" "Duration"
-    printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_login_lengths[0]}")" "$(str_repeat '-' "${max_login_lengths[1]}")" "$(str_repeat '-' "${max_login_lengths[2]}")" "$(str_repeat '-' "${max_login_lengths[3]}")"
-    echo "$login_info" | awk -v max0="${max_login_lengths[0]}" -v max1="${max_login_lengths[1]}" -v max2="${max_login_lengths[2]}" -v max3="${max_login_lengths[3]}" '
-    {
-        split($0, fields, "|");
-        printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, fields[1], max1, fields[2], max2, fields[3], max3, fields[4];
-    }'
+    # Fetch user login information using the `last` command
+    login_info=$(last -F "$username" | head -n -2)
+
+    if [ -z "$login_info" ]; then
+        echo "| No login records found for $username |"
+    else
+        echo "$login_info" | awk -v max_lengths="14 20 20 20" '
+        {
+            user = $1
+            login_time = $4 " " $5 " " $6 " " $7
+            logout_time = $9 " " $10 " " $11 " " $12
+            duration = $13
+
+            if ($8 == "still") {
+                logout_time = "still logged in"
+                duration = $10
+            }
+
+            printf "| %-*s | %-*s | %-*s | %-*s |\n", 14, user, 20, login_time, 20, logout_time, 20, duration
+        }'
+    fi
+
     echo "***************************************************************************"
 }
+
+
+# display_users() {
+#     local username="$1"
+#     echo "****************************** USER DETAILS ******************************"
+
+#     # Capture user details
+#     if [ -z "$username" ]; then
+#         user_info=$(getent passwd | awk -F: '{print $1"|" $5"|" $6"|" $7}')
+#         login_info=$(last -w | awk '{print $1"|" $4" "$5" "$6" "$7" "$8" "$9" "$10}')
+#     else
+#         user_info=$(getent passwd | grep "^$username:" | awk -F: '{print $1"|" $5"|" $6"|" $7}')
+#         login_info=$(last -w "$username" | awk '{print $1"|" $4" "$5" "$6" "$7" "$8" "$9" "$10}')
+#     fi
+
+#     # Determine maximum column widths for user details
+#     max_user_lengths=(40 20 20 20)
+#     calculate_max_widths "$user_info" max_user_lengths
+
+#     # Determine maximum column widths for login records
+#     max_login_lengths=(15 20 20 20)
+#     calculate_max_widths "$login_info" max_login_lengths
+
+#     # Print User Details
+#     printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_user_lengths[0]}" "Username" "${max_user_lengths[1]}" "Full Name" "${max_user_lengths[2]}" "Home Directory" "${max_user_lengths[3]}" "Shell"
+#     printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_user_lengths[0]}")" "$(str_repeat '-' "${max_user_lengths[1]}")" "$(str_repeat '-' "${max_user_lengths[2]}")" "$(str_repeat '-' "${max_user_lengths[3]}")"
+#     echo "$user_info" | awk -v max0="${max_user_lengths[0]}" -v max1="${max_user_lengths[1]}" -v max2="${max_user_lengths[2]}" -v max3="${max_user_lengths[3]}" '
+#     {
+#         split($0, fields, "|");
+#         printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, fields[1], max1, fields[2], max2, fields[3], max3, fields[4];
+#     }'
+#     echo ""
+
+#     # Print Login Records
+#     printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_login_lengths[0]}" "User" "${max_login_lengths[1]}" "Login Time" "${max_login_lengths[2]}" "Logout Time" "${max_login_lengths[3]}" "Duration"
+#     printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_login_lengths[0]}")" "$(str_repeat '-' "${max_login_lengths[1]}")" "$(str_repeat '-' "${max_login_lengths[2]}")" "$(str_repeat '-' "${max_login_lengths[3]}")"
+#     echo "$login_info" | awk -v max0="${max_login_lengths[0]}" -v max1="${max_login_lengths[1]}" -v max2="${max_login_lengths[2]}" -v max3="${max_login_lengths[3]}" '
+#     {
+#         split($0, fields, "|");
+#         printf "| %-*s | %-*s | %-*s | %-*s |\n", max0, fields[1], max1, fields[2], max2, fields[3], max3, fields[4];
+#     }'
+#     echo "***************************************************************************"
+# }
 
 
 display_time_range() {
