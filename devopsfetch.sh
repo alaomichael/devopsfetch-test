@@ -7,20 +7,35 @@ LOG_FILE="/var/log/monitor.log"
 touch "$LOG_FILE"
 chmod 644 "$LOG_FILE"
 
+# # Helper Functions
+# calculate_max_widths() {
+#     local data="$1"
+#     local max_lengths=("${!2}")  # Get the reference to the array
+#     while IFS= read -r line; do
+#         local fields=($line)
+#         for i in "${!fields[@]}"; do
+#             local length=${#fields[i]}
+#             if (( length > max_lengths[i] )); then
+#                 max_lengths[i]=$length
+#             fi
+#         done
+#     done <<< "$data"
+#     eval "$2=(\"\${max_lengths[@]}\")"  # Update the original array
+# }
+
 # Helper Functions
 calculate_max_widths() {
     local data="$1"
-    local max_lengths=("${!2}")  # Get the reference to the array
+    local -n max_lengths_ref=$2  # Using local nameref to reference the array
     while IFS= read -r line; do
         local fields=($line)
         for i in "${!fields[@]}"; do
             local length=${#fields[i]}
-            if (( length > max_lengths[i] )); then
-                max_lengths[i]=$length
+            if (( length > max_lengths_ref[i] )); then
+                max_lengths_ref[i]=$length
             fi
         done
     done <<< "$data"
-    eval "$2=(\"\${max_lengths[@]}\")"  # Update the original array
 }
 
 str_repeat() {
@@ -38,7 +53,7 @@ display_ports() {
     echo "****************************** ACTIVE PORTS AND SERVICES ******************************"
     ports_services=$(sudo ss -tunlp | awk 'NR>1 {print $1"|" $2"|" $3"|" $4"|" $5"|" $6"|" $7"|" $8}')
     max_lengths=(8 10 8 8 22 22 20 10)
-    calculate_max_widths "$ports_services" max_lengths[@]
+    calculate_max_widths "$ports_services" max_lengths
     header="| Netid    | State       | Recv-Q   | Send-Q   | Local Address:Port           | Peer Address:Port            | Process              | Service     |"
     separator=$(printf "%s" "${max_lengths[@]}" | awk '{printf "+"; for (i=1; i<=NF; i++) printf "%s+", str_repeat("-", $i); print "+"}')
     echo "$header"
@@ -131,7 +146,7 @@ display_nginx() {
     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
     nginx_config=$(sudo nginx -T 2>/dev/null | awk '{print $0"|" $0}' | sed 's/|/ /')
     max_lengths=(20 10 50)
-    calculate_max_widths "$nginx_config" max_lengths[@]
+    calculate_max_widths "$nginx_config" max_lengths
     if [ -n "$1" ]; then
         log_message "Displaying Nginx configuration for domain $1"
         domain_config=$(echo "$nginx_config" | awk "/server_name $1/,/}/")
@@ -233,7 +248,7 @@ display_users() {
 display_time_range() {
     local start_date="$1"
     # local end_date="$2"
-    local end_time="${2:-$(date '+%Y-%m-%d %H:%M:%S')}" # Default to current time if end_time is not provided
+    local end_date="${2:-$(date '+%Y-%m-%d %H:%M:%S')}" # Default to current time if end_time is not provided
 
 
     if [[ -z "$start_date" || -z "$end_date" ]]; then
