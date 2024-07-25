@@ -194,14 +194,12 @@ display_nginx() {
     # Fetch and format Nginx configuration details
     if [ -n "$domain" ]; then
         # Filtering specific domain
-        sudo grep -E "server_name.*$domain|root" /etc/nginx/nginx.conf /etc/nginx/sites-enabled/* 2>/dev/null \
-            | sed 's/^/# /' \
+        sudo grep -E "server_name\s+$domain|root" /etc/nginx/nginx.conf /etc/nginx/sites-enabled/* 2>/dev/null \
             | awk -v w1="$col_width_domain" -v w2="$col_width_proxy" -v w3="$col_width_config_file" \
             '{ printf "| %-*s | %-*s | %-*s |\n", w1, $1, w2, "N/A", w3, "N/A" }'
     else
         # List all domains
         sudo grep -E 'server_name' /etc/nginx/nginx.conf /etc/nginx/sites-enabled/* 2>/dev/null \
-            | sed 's/^/# /' \
             | awk -v w1="$col_width_domain" -v w2="$col_width_proxy" -v w3="$col_width_config_file" \
             '{ printf "| %-*s | %-*s | %-*s |\n", w1, $1, w2, "N/A", w3, "N/A" }'
     fi
@@ -210,6 +208,7 @@ display_nginx() {
     create_separator
     echo "**************************************************************************************"
 }
+
 
 display_users() {
     local username="$1"
