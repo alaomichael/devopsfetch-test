@@ -114,9 +114,9 @@ display_docker() {
         docker_images=$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}" | tail -n +2)
         docker_containers=$(docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | tail -n +2)
         max_image_lengths=(20 20 50 20)
-        calculate_max_widths "$docker_images" max_image_lengths[@]
+        calculate_max_widths "$docker_images" max_image_lengths
         max_container_lengths=(20 20 20 20)
-        calculate_max_widths "$docker_containers" max_container_lengths[@]
+        calculate_max_widths "$docker_containers" max_container_lengths
         echo "Docker Images:"
         printf "| %-*s | %-*s | %-*s | %-*s |\n" "${max_image_lengths[0]}" "REPOSITORY" "${max_image_lengths[1]}" "TAG" "${max_image_lengths[2]}" "IMAGE ID" "${max_image_lengths[3]}" "SIZE"
         printf "| %s | %s | %s | %s |\n" "$(str_repeat '-' "${max_image_lengths[0]}")" "$(str_repeat '-' "${max_image_lengths[1]}")" "$(str_repeat '-' "${max_image_lengths[2]}")" "$(str_repeat '-' "${max_image_lengths[3]}")"
