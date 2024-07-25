@@ -4,8 +4,14 @@
 LOG_FILE="/var/log/monitor.log"
 
 # Ensure the log file exists and is writable
-touch "$LOG_FILE"
-chmod 644 "$LOG_FILE"
+# touch "$LOG_FILE"
+# chmod 644 "$LOG_FILE"
+
+# Ensure the log file exists
+if [ ! -f "$LOG_FILE" ]; then
+    sudo touch "$LOG_FILE"
+    sudo chmod 644 "$LOG_FILE"
+fi
 
 # Helper Functions
 calculate_max_widths() {
@@ -165,11 +171,12 @@ display_docker() {
 #     echo "**************************************************************************************"
 # }
 
+
 display_nginx() {
     local domain="$1"
     
     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
-    echo "[INFO] $(date "+%a %b %d %T %Y"): Listing all Nginx domains and their ports:"
+    # echo "[INFO] $(date "+%a %b %d %T %Y"): Listing all Nginx domains and their ports:"
 
     # Define column widths
     local col_width_domain=40
@@ -208,6 +215,52 @@ display_nginx() {
     create_separator
     echo "**************************************************************************************"
 }
+
+
+# display_nginx() {
+#     local domain="$1"
+    
+#     echo "****************************** NGINX DOMAIN VALIDATION ******************************"
+#     echo "[INFO] $(date "+%a %b %d %T %Y"): Listing all Nginx domains and their ports:"
+
+#     # Define column widths
+#     local col_width_domain=40
+#     local col_width_proxy=10
+#     local col_width_config_file=30
+
+#     # Function to create a separator line
+#     create_separator() {
+#         local sep1=$(printf "%${col_width_domain}s" | tr ' ' '-')
+#         local sep2=$(printf "%${col_width_proxy}s" | tr ' ' '-')
+#         local sep3=$(printf "%${col_width_config_file}s" | tr ' ' '-')
+#         printf "+%s+%s+%s+\n" "$sep1" "$sep2" "$sep3"
+#     }
+
+#     # Print header
+#     printf "| %-*s | %-*s | %-*s |\n" \
+#         "$col_width_domain" "DOMAIN" \
+#         "$col_width_proxy" "PROXY" \
+#         "$col_width_config_file" "CONFIGURATION FILE"
+#     create_separator
+
+#     # Fetch and format Nginx configuration details
+#     if [ -n "$domain" ]; then
+#         # Filtering specific domain
+#         sudo grep -E "server_name\s+$domain|root" /etc/nginx/nginx.conf /etc/nginx/sites-enabled/* 2>/dev/null \
+#             | awk -v w1="$col_width_domain" -v w2="$col_width_proxy" -v w3="$col_width_config_file" \
+#             '{ printf "| %-*s | %-*s | %-*s |\n", w1, $1, w2, "N/A", w3, "N/A" }'
+#     else
+#         # List all domains
+#         sudo grep -E 'server_name' /etc/nginx/nginx.conf /etc/nginx/sites-enabled/* 2>/dev/null \
+#             | awk -v w1="$col_width_domain" -v w2="$col_width_proxy" -v w3="$col_width_config_file" \
+#             '{ printf "| %-*s | %-*s | %-*s |\n", w1, $1, w2, "N/A", w3, "N/A" }'
+#     fi
+
+#     # Print closing line
+#     create_separator
+#     echo "**************************************************************************************"
+# }
+
 
 
 display_users() {
